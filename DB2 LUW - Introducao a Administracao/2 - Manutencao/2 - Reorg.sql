@@ -1,4 +1,4 @@
---***** F* *****---
+--***** F'X' *****---
 /*
 Tabela:
 F1: Overflows < 5%
@@ -51,7 +51,7 @@ WHERE 1=1
         AND TABSCHEMA NOT IN ('SYSCAT', 'SYSIBM','SYSIBMADM', 'SYSPUBLIC', 'SYSSTAT', 'SYSTOOLS') ; 
         
         
-SELECT 'runstats on table ' || trim(tabschema) || '.' || trim(tabname) || ' and indexes all;'
+SELECT 'runstats on table ' || trim(tabschema) || '.' || trim(tabname) || ' with distribution and indexes all;'
         AS "RUNSTATS"
 FROM syscat.tables 
 WHERE 1=1
@@ -73,7 +73,7 @@ WHERE 1=1
         AND type = 'T'
         AND TABSCHEMA NOT IN ('SYSCAT', 'SYSIBM','SYSIBMADM', 'SYSPUBLIC', 'SYSSTAT', 'SYSTOOLS') ; 
 
-SELECT 'CALL SYSPROC.ADMIN_CMD(''runstats on table ' || trim(tabschema) || '.' || trim(tabname) || ' and indexes all'');'
+SELECT 'CALL SYSPROC.ADMIN_CMD(''runstats on table ' || trim(tabschema) || '.' || trim(tabname) || ' with distribution and indexes all'');'
         AS "RUNSTATS"
 FROM syscat.tables 
 WHERE 1=1
@@ -95,27 +95,59 @@ Active blocks - Total de Blocos ativos para MDC, blocos que contém dados.
 */
 CALL SYSPROC.REORGCHK_IX_STATS('S', 'DB2I101');
 /*
-Firstkeycard -
-First2keycard -
-First3keycard -
-First3keycard -
+Firstkeycard - Numeros de valores distintos na primeira chave
+First2keycard - Numero de valores distintos usando as duas primeiras colunas do indice
+First3keycard - Numero de valores distintos usando as tres primeiras colunas do indice
+First3keycard - Numero de valores distintos usando as quatro primeiras colunas do indice
 PCTFREE - Percentual de páginas livres na página do índice
-Colcount -
 Dados globais (que nao possuem particionamento):
 Cluster ratio - grau de clusterizacao. Indica o percentual de chaves da tabela que acompanham o
 índice
-Cluster factor -
-Page_fetch_pairs
 Dados para tabelas particionadas:
 AVGPARTITION_CLUSTERRATIO
 AVGPARTITION_CLUSTERFACTOR
 AVGPARTITION_PAGE_FETCH_PAIRS
 Ordem do índice (se é ascendente, ou descendente)
 */
-SELECT DISTINCT TABSCHEMA
-FROM SYSCAT.TABLES;
-SELECT *
-FROM SESSION.TB_STATS
-SELECT *
-FROM SESSION.TB_STATS
-WHERE REORG LIKE '%*%'
+
+--Aqui criar tabela Empregado!
+
+CALL SYSPROC.REORGCHK_TB_STATS('T', 'DB2I101.EMPREGADO');
+
+CALL SYSPROC.ADMIN_CMD('runstats on table DB2I101.EMPREGADO with distribution and indexes all');
+
+-- TRUNCATE TABLE EMPREGADO DROP STORAGE IGNORE DELETE TRIGGERS IMMEDIATE;
+-- ALTER TABLE Empregado ALTER COLUMN EMP_ID RESTART WITH 0;
+
+--Após isso aqui o F3 será necessário        
+DELETE FROM Empregado E WHERE MOD(E.EMP_ID,2) = 0;
+CALL SYSPROC.ADMIN_CMD('runstats on table DB2I101.EMPREGADO with distribution and indexes all');
+CALL SYSPROC.REORGCHK_TB_STATS('T', 'DB2I101.EMPREGADO');
+
+
+--Tentar forçar um F1
+SELECT 
+        TABSCHEMA, TABNAME, TABLE_SCANS, ROWS_READ, ROWS_INSERTED, ROWS_UPDATED, OVERFLOW_ACCESSES, OVERFLOW_CREATES, PAGE_REORGS
+        --*
+FROM TABLE(MON_GET_TABLE(NULL, NULL, -2)) T
+WHERE 1=1
+        AND TABNAME = 'EMPREGADO'
+
+SELECT * FROM EMPREGADO
+UPDATE Empregado E SET NOME = REPEAT('A',40) WHERE MOD(E.EMP_ID,2) = 0;
+CALL SYSPROC.ADMIN_CMD('runstats on table DB2I101.EMPREGADO with distribution and indexes all');
+CALL SYSPROC.REORGCHK_TB_STATS('T', 'DB2I101.EMPREGADO');
+
+SELECT 
+        TABSCHEMA, TABNAME, TABLE_SCANS, ROWS_READ, ROWS_INSERTED, ROWS_UPDATED, OVERFLOW_ACCESSES, OVERFLOW_CREATES, PAGE_REORGS
+        --*
+FROM TABLE(MON_GET_TABLE(NULL, NULL, -2)) T
+WHERE 1=1
+        AND TABNAME = 'EMPREGADO'
+
+
+--Forcar um F2
+
+--Nao deu, vou ter que fazer cáculo de ROWID
+--ALTER TABLE Empregado PCTFREE 40;
+--SELECT T.PCTFREE, T.* FROM SYSCAT.TABLES T WHERE T.TABNAME = 'EMPREGADO';

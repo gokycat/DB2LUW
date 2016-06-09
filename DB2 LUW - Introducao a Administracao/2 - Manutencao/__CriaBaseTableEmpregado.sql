@@ -29,14 +29,14 @@ END
 CREATE TABLE Empregado (
 EMP_ID INT GENERATED ALWAYS AS IDENTITY 
                          (START WITH 1, INCREMENT BY 1, NO CACHE),
-Numero INT
-Nome char(40),
+Numero INT,
+Nome varchar(40),
 Data_Nascimento date,
 Salario integer) 
 ;
 
 --Inserir um registro
-INSERT INTO Empregado (NOME, DATA_NASCIMENTO, SALARIO)
+INSERT INTO Empregado (NUMERO,NOME, DATA_NASCIMENTO, SALARIO)
 SELECT 
   1 
 	, TRANSLATE(CHAR(BIGINT(RAND() * 10000000000)), 'abcdefgHij', '1234567890')
@@ -48,7 +48,7 @@ FROM SYSIBM.SYSDUMMY1
 --Inserir em massa sem precisar de proc
 /#
 BEGIN
-INSERT INTO Empregado (EMP_ID, NOME, DATA_NASCIMENTO, SALARIO)
+INSERT INTO Empregado (NUMERO, NOME, DATA_NASCIMENTO, SALARIO)
   WITH
   EMP_IDS (EMP_ID) AS
      (VALUES (1)
