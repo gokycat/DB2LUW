@@ -25,17 +25,25 @@ de páginas de folha.
 */
 
 ----------------------------------------------------------------------------------------------------
------------------- Gerar comandos para rodar da linha de comando -----------------------------------
+------------------ Altera a configuração do servidor -----------------------------------------------
 ----------------------------------------------------------------------------------------------------
 
+--Desativa a manutencao automatica
 CALL SYSPROC.ADMIN_CMD('update db cfg using AUTO_MAINT OFF');
 CALL SYSPROC.ADMIN_CMD('update db cfg using AUTO_TBL_MAINT OFF');
 CALL SYSPROC.ADMIN_CMD('update db cfg using AUTO_RUNSTATS OFF');
 CALL SYSPROC.ADMIN_CMD('update db cfg using AUTO_STMT_STATS OFF');
+--Habilita o cur_commit
 CALL SYSPROC.ADMIN_CMD('update db cfg using CUR_COMMIT ON');
+--Aumenta a quantidade de logs
 CALL SYSPROC.ADMIN_CMD('update db cfg using LOGPRIMARY 200');
 CALL SYSPROC.ADMIN_CMD('update db cfg using LOGSECOND 0');
 
+----------------------------------------------------------------------------------------------------
+------------------ Gerar comandos para rodar da linha de comando -----------------------------------
+----------------------------------------------------------------------------------------------------
+
+--Gera o reorgchk rodando estatísticas (seve para linha de comando - shell)
 SELECT 'reorgchk update statistics on table ' || TRIM(tabschema) || '.' || TRIM(tabname) || ';' 
         AS "REORGCHK WITH UPDATE STATISTCS"
 FROM syscat.tables
@@ -43,6 +51,7 @@ WHERE 1=1
         AND type = 'T'
         AND TABSCHEMA NOT IN ('SYSCAT', 'SYSIBM','SYSIBMADM', 'SYSPUBLIC', 'SYSSTAT', 'SYSTOOLS') ; 
 
+--Gera o reorg das tabelas (seve para linha de comando - shell)
 SELECT 'reorg table ' || rtrim(tabschema) || '.' || trim(tabname) || ';'
         AS "REORG TABLE"
 FROM syscat.tables 
@@ -50,7 +59,7 @@ WHERE 1=1
         AND type = 'T'
         AND TABSCHEMA NOT IN ('SYSCAT', 'SYSIBM','SYSIBMADM', 'SYSPUBLIC', 'SYSSTAT', 'SYSTOOLS') ; 
         
-        
+--Gera o runstats das tabelas (serve para linha de comando - shell)        
 SELECT 'runstats on table ' || trim(tabschema) || '.' || trim(tabname) || ' with distribution and indexes all;'
         AS "RUNSTATS"
 FROM syscat.tables 
@@ -82,7 +91,7 @@ WHERE 1=1
 
 
 ---------------------------------------------------------------------------------------
----------------------------------------------------------------------------------------
+-----------------Executa os testes na IDE do Reorg e Runstats--------------------------
 ---------------------------------------------------------------------------------------
 
 
@@ -112,18 +121,13 @@ Ordem do índice (se é ascendente, ou descendente)
 
 --Aqui criar tabela Empregado!
 
+--Rodar o reorgchk
 CALL SYSPROC.REORGCHK_TB_STATS('T', 'DB2I101.EMPREGADO');
 
 CALL SYSPROC.ADMIN_CMD('runstats on table DB2I101.EMPREGADO with distribution and indexes all');
 
 -- TRUNCATE TABLE EMPREGADO DROP STORAGE IGNORE DELETE TRIGGERS IMMEDIATE;
 -- ALTER TABLE Empregado ALTER COLUMN EMP_ID RESTART WITH 0;
-
---Após isso aqui o F3 será necessário        
-DELETE FROM Empregado E WHERE MOD(E.EMP_ID,2) = 0;
-CALL SYSPROC.ADMIN_CMD('runstats on table DB2I101.EMPREGADO with distribution and indexes all');
-CALL SYSPROC.REORGCHK_TB_STATS('T', 'DB2I101.EMPREGADO');
-
 
 --Tentar forçar um F1
 SELECT 
@@ -134,10 +138,11 @@ WHERE 1=1
         AND TABNAME = 'EMPREGADO'
 
 SELECT * FROM EMPREGADO
-UPDATE Empregado E SET NOME = REPEAT('A',40) WHERE MOD(E.EMP_ID,2) = 0;
-CALL SYSPROC.ADMIN_CMD('runstats on table DB2I101.EMPREGADO with distribution and indexes all');
-CALL SYSPROC.REORGCHK_TB_STATS('T', 'DB2I101.EMPREGADO');
 
+--Força o F1
+UPDATE Empregado E SET NOME = REPEAT('A',40) WHERE MOD(E.EMP_ID,2) = 0;
+
+--Verifica se teve overflow na tabela
 SELECT 
         TABSCHEMA, TABNAME, TABLE_SCANS, ROWS_READ, ROWS_INSERTED, ROWS_UPDATED, OVERFLOW_ACCESSES, OVERFLOW_CREATES, PAGE_REORGS
         --*
@@ -146,8 +151,12 @@ WHERE 1=1
         AND TABNAME = 'EMPREGADO'
 
 
---Forcar um F2
+--Roda o runstats e valida a necessidade de reorg. 
+CALL SYSPROC.ADMIN_CMD('runstats on table DB2I101.EMPREGADO with distribution and indexes all');
+CALL SYSPROC.REORGCHK_TB_STATS('T', 'DB2I101.EMPREGADO');
 
---Nao deu, vou ter que fazer cáculo de ROWID
---ALTER TABLE Empregado PCTFREE 40;
---SELECT T.PCTFREE, T.* FROM SYSCAT.TABLES T WHERE T.TABNAME = 'EMPREGADO';
+
+--Força o F2 ou F3.        
+DELETE FROM Empregado E WHERE MOD(E.EMP_ID,2) = 0;
+CALL SYSPROC.ADMIN_CMD('runstats on table DB2I101.EMPREGADO with distribution and indexes all');
+CALL SYSPROC.REORGCHK_TB_STATS('T', 'DB2I101.EMPREGADO');

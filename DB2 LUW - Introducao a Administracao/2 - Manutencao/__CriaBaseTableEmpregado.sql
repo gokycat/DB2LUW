@@ -33,6 +33,7 @@ Numero INT,
 Nome varchar(40),
 Data_Nascimento date,
 Salario integer) 
+--IN TBSP_TESTE --Essa é um indicativo de qual tablespace voce deseja criar a tabela
 ;
 
 --Inserir um registro
